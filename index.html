@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Socket.IO chat</title>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font: 13px Helvetica, Arial; display: flex;
+            min-height: 100vh;
+            /*height: 100vh;*/
+            flex-direction: column;}
+        .page-body {
+            display: flex;
+            flex: 1;
+        }
+        .page-content {
+            border-radius: 15px;
+            border: 6px solid darkgrey;
+            background-color:dodgerblue;
+            /*flex: 0 0 860px;*/
+
+            display: flex;
+            /*flex-direction: column;*/
+
+            max-height: 100vh;
+            overflow: auto;
+        }
+        .page-nav, .page-aside {
+            flex: auto;
+        }
+        .page-nav {
+            order: -1;
+            background-color:white;
+
+
+        }
+        .form-pane {
+
+        }
+        .chat-pane {
+            max-width: 860px;
+        }
+        .online-users-pane {
+            border: black;
+            padding: 5px;
+            min-width: 100px;
+            max-width: 100px;
+        }
+        .message-pane {min-width: 100px;}
+        form { background: #000; padding: 3px; position: static; bottom: 0; width: 100%; }
+        form input { border: 0; padding: 10px; width: 69%; margin-right: 0.5%; }
+        form button { width: 30%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+        #messages { list-style-type: none; margin: 0; padding: 0; word-wrap: break-word;}
+        #messages li { padding: 5px 10px; }
+        #messages li:nth-child(odd) { background: #eee; }
+        #messages li:nth-child(even) { background: #1efffe; }
+    </style>
+
+</head>
+<body>
+<!--    <header>Header</header>-->
+    <div class="page-body">
+        <nav class="page-nav"></nav>
+        <main class="page-content">
+            <div class="online-users-pane">
+                <h3>Online users:</h3><br>
+                <ul id="online-users"></ul>
+            </div>
+            <div class="chat-pane">
+                <div class="message-pane">
+                    <ul id="messages"></ul>
+                </div>
+                <div class ="form-pane">
+                    <form action="">
+                        <input id="m" autocomplete="off" type="text" placeholder="Enter Message" required /><button>Send</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+        <aside class="page-aside"></aside>
+    </div>
+<!--    <footer>Footer</footer>-->
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+<script>
+    $(function () {
+        document.cookie = 'SameSite=None';
+        var socket = io();
+        $('form').submit(function(e){
+            e.preventDefault(); // prevents page reloading
+            socket.emit('chat message', $('#m').val());
+            $('#m').val('');
+            return false;
+        });
+        socket.on('chat message', function(msg){
+            $('#messages').append($('<li>').html(msg));
+        });
+        socket.on('online users', function(msg){
+            $('#online-users').replaceWith($('<p>').html(msg));
+        });
+        socket.on('query cookies', () => {
+            const localUsername = localStorage.getItem('local-userName');
+            const localColor = localStorage.getItem('local-color');
+            if(localUsername !== undefined && localColor !== undefined) {
+                socket.emit('cookie check', [localUsername, localColor]);
+            }
+        });
+        socket.on('update storage', (user) => {
+            localStorage.setItem('local-userName', user.username);
+            localStorage.setItem('local-color', user.chatColour);
+        });
+    });
+</script>
+</body>
+</html>

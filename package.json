@@ -1,0 +1,8 @@
+{
+  "name": "A3_ChatApp_v2",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.15.2",
+    "socket.io": "^3.0.1"
+  }
+}
