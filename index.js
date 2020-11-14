@@ -9,15 +9,24 @@ app.get('/', (req, res) => {
 let connections = 0;
 const user = {id: 0, username: "nousr", chatColour: "noclr"};
 const users = [];
+let chatMessages = [];
 
 
 io.on('connection', (socket) => {
     // console.log(users);
+    console.log("\nNew connection")
+    const user = addNewDefaultUser(socket.id);
     io.to(socket.id).emit('query cookies');
     connections++;
-    const user = userJoined(socket.id);
-    io.emit('chat message', timestamp() + ' '+ "New user joined: " + user.username);
     updateUsers();  //update list of users
+    console.log("\nUsers before emit new connection");
+    console.log(users);
+    chatMessages.forEach(message => {
+        io.to(socket.id).emit('chat message', message);
+    });
+    io.emit('chat message', timestamp() + ' '+ "New user joined! ");
+    // io.emit('chat message', timestamp() + ' '+ "New user joined! " + getUser(socket.id).username);
+
     socket.on('chat message', (msg) => {
         if(isCommand(msg)) {
             const usernameChangeCommand = "/name";
@@ -32,6 +41,8 @@ io.on('connection', (socket) => {
                 if(!usernameTaken(str[1])) {
                     user.username = String(str[1]);
                     io.to(socket.id).emit('chat message', "Username changed to: " + user.username);
+                    updateUsers();
+                    io.to(socket.id).emit('update storage', getUser(socket.id));
                 }
                 else
                     io.to(socket.id).emit('chat message', "Error: Username taken!");
@@ -40,13 +51,14 @@ io.on('connection', (socket) => {
                 console.log(str[1]);
                 user.chatColour = String(str[1]);
                 io.to(socket.id).emit('chat message', "Chat colour changed to: " + user.chatColour);
+                io.to(socket.id).emit('update storage', getUser(socket.id));
                 // TODO implement check for valid color
             }
             else
                 io.to(socket.id).emit('chat message', "Error: Incorrect command usage! (e.g. /color blue or /name Gerald");
         }
         // check valid message
-        else if(isMessage(msg)) {
+        else if(isMessage(msg, socket)) {
             // convert shorthand into emojis
             msg = convertEmojis(msg);
             // message that is sent our to all other users
@@ -56,19 +68,22 @@ io.on('connection', (socket) => {
             // send bold message to chat author
             io.to(socket.id).emit('chat message', boldChatMessage)
             // send message to other chat users
-            // TODO iteratively broadcast chat message to other users with custom chat preferences
-            // for (int i = 0; i < users.length; i++) {
-            //     io.to(users[i])
-            // }
+
             socket.broadcast.emit('chat message', chatMessage);
+            chatMessages.push(chatMessage);
             // socket.broadcast.emit???
+            //  Update cookies on client side
+            // io.to(socket.id).emit('update storage', getUser(socket.id)); TODO include this?
 
         }
 
     });
     socket.on('cookie check', (clientCookies) => {
+        console.log("clientCookies is: " + clientCookies[0] + " " + clientCookies[1]);
         updateUserParameters(socket.id, clientCookies);
-        io.to(socket.id).emit('update storage', getUser(socket.id));
+        updateUsers();
+        // io.to(socket.id).emit('update storage', getUser(socket.id)); // is this redundant
+        io.emit('chat message', timestamp() + ' '+ "Welcome back <b>" + getUser(socket.id).username + "</b>!");
     });
     socket.on('disconnect', () => {
         // send message that user has left
@@ -78,6 +93,7 @@ io.on('connection', (socket) => {
         removeUser(socket.id);
         // update list of users in sidebar
         updateUsers();  //update list of users
+        connections--;
     });
 });
 
@@ -85,7 +101,7 @@ http.listen(3000, () => {
     console.log('listening on *:3000');
 });
 
-function isMessage(msg) {
+function isMessage(msg, socket) {
     if (msg.length < 1) {
         return false;
     } else if (msg.includes('/') || msg.includes('<')) {
@@ -113,7 +129,7 @@ function timestamp() {
 
 }
 
-function userJoined(id) {
+function addNewDefaultUser(id) {
      // use socket.id
      // make random username
     let username = connections;
@@ -157,16 +173,21 @@ function updateUsers() {
     for (let i = 0; i < users.length; i++) {
         let socketID = users[i].id;
         io.to(socketID).emit('online users', usersList);
-        console.log("emitting to: +" + socketID);
+        console.log("emitting "+usersList+" to: +" + socketID);
     }
     //io.to(socket.id).emit
     // io.emit('online users', usersList);
     console.log("finished updating users");
+    console.log(users);
 }
 
 function updateUserParameters(id, cookies) {
+    console.log("updating user parameters");
+    console.log(users);
     for (let i = 0; i < users.length; i++) {
-        if(users[i].id === id) {
+        if (users[i].id === id) {
+            console.log("i is: " + i + " users[i].id: " + users[i].id + " id: " + id);
+            console.log("found user: " + id + " with name: " + cookies[0] + " and user name: " + cookies[1]);
             users[i].username = cookies[0];
             users[i].chatColour = cookies[1];
         }
